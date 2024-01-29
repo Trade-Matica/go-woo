@@ -22,3 +22,17 @@ result, err := client.SendOrder(v1Types.Order{
   Side:          v1Types.BUY,
 })
 ```
+
+## Public websocket
+
+```go
+stream := ws.NewPublicStream("your-app-id")
+eventsChan, err := stream.SubBestBookOffer(context.Background(), "SPOT_BTC_USDT", "SPOT_ETH_USDT")
+if err != nil {
+  log.Fatal(err)
+}
+
+for bboe := range eventsChan {
+  fmt.Printf("%+v\n", bboe)
+}
+```
