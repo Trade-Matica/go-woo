@@ -121,3 +121,13 @@ type GetOrdersRows struct {
 	PositionSide         PositionSide `json:"position_side"`
 	RealizedPnl          float64      `json:"realized_pnl"`
 }
+
+type CancelOrder struct {
+	Symbol  string `json:"symbol,omitempty" url:"symbol,omitempty"`
+	OrderId int64  `json:"order_id,omitempty" url:"order_id,omitempty"`
+}
+
+type CancelOrderResult struct {
+	Success bool   `json:"success"`
+	Status  string `json:"status"`
+}

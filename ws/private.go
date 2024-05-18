@@ -55,9 +55,9 @@ func (s *PrivateStream) generateSignatureV3(timestamp string) string {
 }
 
 func (s *PrivateStream) SubBalance(ctx context.Context) (<-chan BalanceEvent, error) {
-	requests := []WSPrivateRequest{}
+	var requests []PrivateRequest
 
-	requests = append(requests, WSPrivateRequest{
+	requests = append(requests, PrivateRequest{
 		ID:    fmt.Sprintf("%d", time.Now().UTC().UnixNano()),
 		Event: "subscribe",
 		Topic: "balance",
@@ -88,6 +88,74 @@ func (s *PrivateStream) SubBalance(ctx context.Context) (<-chan BalanceEvent, er
 	return events, nil
 }
 
+func (s *PrivateStream) SubExecutionReport(ctx context.Context) (<-chan ExecutionReportEvent, error) {
+	var requests []PrivateRequest
+
+	requests = append(requests, PrivateRequest{
+		ID:    fmt.Sprintf("%d", time.Now().UTC().UnixNano()),
+		Event: "subscribe",
+		Topic: "executionreport",
+	})
+
+	eventsC, err := servePrivate[ExecutionReportEvent](ctx, s, requests...)
+
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	events := make(chan ExecutionReportEvent, 1)
+	go func() {
+		defer close(events)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case event, ok := <-eventsC:
+				if !ok {
+					return
+				}
+				events <- event
+			}
+		}
+	}()
+
+	return events, nil
+}
+
+func (s *PrivateStream) SubPositionPush(ctx context.Context) (<-chan PositionPushEvent, error) {
+	var requests []PrivateRequest
+
+	requests = append(requests, PrivateRequest{
+		ID:    fmt.Sprintf("%d", time.Now().UTC().UnixNano()),
+		Event: "subscribe",
+		Topic: "position",
+	})
+
+	eventsC, err := servePrivate[PositionPushEvent](ctx, s, requests...)
+
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	events := make(chan PositionPushEvent, 1)
+	go func() {
+		defer close(events)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case event, ok := <-eventsC:
+				if !ok {
+					return
+				}
+				events <- event
+			}
+		}
+	}()
+
+	return events, nil
+}
+
 func (s *PrivateStream) printf(format string, v ...interface{}) {
 	if !s.isDebugMode {
 		return
@@ -95,7 +163,7 @@ func (s *PrivateStream) printf(format string, v ...interface{}) {
 	log.Printf(format+"\n", v)
 }
 
-func (s *PrivateStream) connect(requests ...WSPrivateRequest) (*websocket.Conn, error) {
+func (s *PrivateStream) connect(requests ...PrivateRequest) (*websocket.Conn, error) {
 	conn, _, err := s.dialer.Dial(s.url, nil)
 	if err != nil {
 		return nil, errors.WithStack(err)
@@ -104,7 +172,7 @@ func (s *PrivateStream) connect(requests ...WSPrivateRequest) (*websocket.Conn, 
 	s.printf("connected to %v", s.url)
 
 	timestamp := fmt.Sprintf("%d", time.Now().UnixNano()/1e6)
-	if err := conn.WriteJSON(&WSPrivateRequest{
+	if err := conn.WriteJSON(&PrivateRequest{
 		ID:    fmt.Sprintf("%d", time.Now().UTC().UnixNano()),
 		Event: "auth",
 		Params: RequestParams{
@@ -136,7 +204,7 @@ func (s *PrivateStream) connect(requests ...WSPrivateRequest) (*websocket.Conn, 
 	return conn, nil
 }
 
-func servePrivate[T WSEventI](ctx context.Context, s *PrivateStream, requests ...WSPrivateRequest) (chan T, error) {
+func servePrivate[T EventI](ctx context.Context, s *PrivateStream, requests ...PrivateRequest) (chan T, error) {
 	topics := map[string]bool{}
 
 	for _, w := range requests {
@@ -202,7 +270,11 @@ func servePrivate[T WSEventI](ctx context.Context, s *PrivateStream, requests ..
 				return
 			case <-time.After(time.Second * 9):
 				s.printf("%s", "PING")
-				conn.SetWriteDeadline(time.Now().Add(writeWait))
+				err := conn.SetWriteDeadline(time.Now().Add(writeWait))
+				if err != nil {
+					s.printf("SetWriteDeadline: %v", err)
+					return
+				}
 				if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 					s.printf("write ping: %v", err)
 				}
@@ -213,7 +285,7 @@ func servePrivate[T WSEventI](ctx context.Context, s *PrivateStream, requests ..
 	return eventsC, nil
 }
 
-func (s *PrivateStream) reconnect(ctx context.Context, requests []WSPrivateRequest) (*websocket.Conn, error) {
+func (s *PrivateStream) reconnect(ctx context.Context, requests []PrivateRequest) (*websocket.Conn, error) {
 	for i := 1; i < s.wsReconnectionCount; i++ {
 		conn, err := s.connect(requests...)
 		if err == nil {
@@ -236,7 +308,7 @@ func (s *PrivateStream) reconnect(ctx context.Context, requests []WSPrivateReque
 	return nil, errors.New("reconnection failed")
 }
 
-func (s *PrivateStream) subscribe(conn *websocket.Conn, requests []WSPrivateRequest) error {
+func (s *PrivateStream) subscribe(conn *websocket.Conn, requests []PrivateRequest) error {
 	for _, req := range requests {
 		err := conn.WriteJSON(req)
 		if err != nil {

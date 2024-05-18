@@ -8,7 +8,7 @@ import (
 )
 
 func (c *Client) GetAccountInfo() (*t.GetAccountInfoResult, error) {
-	req, err := http.NewRequest("GET", BaseURL+"/accountinfo", nil)
+	req, err := http.NewRequest("GET", "/accountinfo", nil)
 	if err != nil {
 		return nil, err
 	}

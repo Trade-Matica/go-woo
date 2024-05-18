@@ -1,10 +1,10 @@
 package ws
 
-type WSEventI interface {
+type EventI interface {
 	GetTopic() string
 }
 
-type WSRequest struct {
+type Request struct {
 	ID    string `json:"id"`
 	Event string `json:"event"`
 	Topic string `json:"topic"`
