@@ -313,30 +313,43 @@ func serve[T EventI](ctx context.Context, s *PublicStream, requests ...Request) 
 			defer close(doneC)
 
 			for {
-				message := new(T)
-				err = conn.ReadJSON(&message)
-
-				if err != nil {
-					s.printf("read msg: %v", err)
-
-					/*
-						if websocket.IsCloseError(err, websocket.CloseNormalClosure) {
-							return
-						}
-					*/
-
-					conn, err = s.reconnect(ctx, requests)
-					if err != nil {
-						s.printf("reconnect: %+v", err)
-						return
-					}
+				var message SubscribeSuccessEvent
+				if err = conn.ReadJSON(&message); err != nil {
+					s.printf("read subscribe msg: %v", err)
 					continue
 				}
 
-				msg := *message
+				if !message.Success {
+					s.printf("cant subscribe to event %v", message.Data)
+					continue
+				}
 
-				if topics[msg.GetTopic()] {
-					eventsC <- msg
+				for {
+					message := new(T)
+					err = conn.ReadJSON(&message)
+
+					if err != nil {
+						s.printf("read msg: %v", err)
+
+						/*
+							if websocket.IsCloseError(err, websocket.CloseNormalClosure) {
+								return
+							}
+						*/
+
+						conn, err = s.reconnect(ctx, requests)
+						if err != nil {
+							s.printf("reconnect: %+v", err)
+							return
+						}
+						break
+					}
+
+					msg := *message
+
+					if topics[msg.GetTopic()] {
+						eventsC <- msg
+					}
 				}
 			}
 		}()

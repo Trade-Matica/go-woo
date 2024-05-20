@@ -98,3 +98,15 @@ type OrderbookEvent struct {
 func (e OrderbookEvent) GetTopic() string {
 	return e.Topic
 }
+
+type SubscribeSuccessEvent struct {
+	Ts      int64  `json:"ts"`
+	ID      string `json:"id"`
+	Event   string `json:"event"`
+	Data    string `json:"data"`
+	Success bool   `json:"success"`
+}
+
+func (e SubscribeSuccessEvent) GetTopic() string {
+	return ""
+}
