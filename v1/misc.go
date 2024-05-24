@@ -1,19 +1,12 @@
 package v1
 
 import (
-	"net/http"
-
-	"github.com/trading-peter/go-woo/shared"
-	t "github.com/trading-peter/go-woo/v1/types"
+	"mm/package/woox/shared"
+	t "mm/package/woox/v1/types"
 )
 
 func (c *Client) GetSystemMaintenanceStatus() (*t.SystemMaintenanceStatusResult, error) {
-	req, err := http.NewRequest("GET", BaseURL+"/public/system_info", nil)
-	if err != nil {
-		return nil, err
-	}
-
-	raw, err := c.SendRequest(req, nil, false)
+	raw, err := c.SendRequest("GET", "public/system_info", nil, false)
 	if err != nil {
 		return nil, err
 	}
@@ -22,12 +15,7 @@ func (c *Client) GetSystemMaintenanceStatus() (*t.SystemMaintenanceStatusResult,
 }
 
 func (c *Client) AvailableSymbols() (*t.AvailableSymbolsResult, error) {
-	req, err := http.NewRequest("GET", BaseURL+"/public/info", nil)
-	if err != nil {
-		return nil, err
-	}
-
-	raw, err := c.SendRequest(req, nil, false)
+	raw, err := c.SendRequest("GET", "public/info", nil, false)
 	if err != nil {
 		return nil, err
 	}

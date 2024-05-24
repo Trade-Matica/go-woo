@@ -1,19 +1,18 @@
 package v1
 
 import (
-	"net/http"
-
-	"github.com/trading-peter/go-woo/shared"
-	t "github.com/trading-peter/go-woo/v1/types"
+	"mm/package/woox/shared"
+	t "mm/package/woox/v1/types"
+	"time"
 )
 
 func (c *Client) SendOrder(o t.Order) (*t.SendOrderResult, error) {
-	req, err := http.NewRequest("POST", BaseURL+"/order", nil)
-	if err != nil {
-		return nil, err
+	if _, exists := c.limiter.ordersPlacing[o.Symbol]; !exists {
+		c.limiter.ordersPlacing[o.Symbol] = shared.NewRateLimiter(5, time.Second)
 	}
+	c.limiter.ordersPlacing[o.Symbol].Wait()
 
-	raw, err := c.SendRequest(req, o, true)
+	raw, err := c.SendRequest("POST", "order", o, true)
 	if err != nil {
 		return nil, err
 	}
@@ -22,15 +21,23 @@ func (c *Client) SendOrder(o t.Order) (*t.SendOrderResult, error) {
 }
 
 func (c *Client) GetOrders() (*t.GetOrdersResult, error) {
-	req, err := http.NewRequest("GET", BaseURL+"/orders", nil)
-	if err != nil {
-		return nil, err
-	}
+	c.limiter.getOrder.Wait()
 
-	raw, err := c.SendRequest(req, nil, true)
+	raw, err := c.SendRequest("GET", "orders", nil, true)
 	if err != nil {
 		return nil, err
 	}
 
 	return shared.UnmarshalTo[t.GetOrdersResult](raw)
+}
+
+func (c *Client) CancelOrder(o t.CancelOrder) (*t.CancelOrderResult, error) {
+	c.limiter.cancel.Wait()
+
+	raw, err := c.SendRequest("DELETE", "order", o, true)
+	if err != nil {
+		return nil, err
+	}
+
+	return shared.UnmarshalTo[t.CancelOrderResult](raw)
 }
